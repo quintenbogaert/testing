@@ -41,7 +41,7 @@ class Service(db.Model):
         return f"<Service {self.id} {kind} {self.title} ({self.company.username})>"
 
 
-class Deal(db.Model): #alleen lopende deals, 
+class Deal(db.Model): 
     __tablename__ = "deals"
     id = db.Column(db.Integer, primary_key=True)
     service_offered_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False) # service kan niet verwijderd worden als de service in een deal zit
@@ -53,6 +53,7 @@ class Deal(db.Model): #alleen lopende deals,
     offering_company_email = association_proxy("offering_company", "email")
     needing_company_email  = association_proxy("needing_company", "email")
     contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan")
+    reviews = db.relationship("Review", back_populates="deal_a")
     # status moet er nog bij
 
     __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
@@ -68,7 +69,7 @@ class Contract(db.Model):
     deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="CASCADE"), nullable=False)
     deal = db.relationship("Deal", back_populates="contracts")
     offering_company = association_proxy("deal", "offering_company") # linken van betrokken bedrijven aan een contract
-    needing_company  = association_proxy("deal", "needing_company") 
+    needing_company  = association_proxy("deal", "needing_company") # beter zo dan extra kolommen?
     offering_company_email = association_proxy("deal", "offering_company_email") # linken van hun emails aan het contract
     needing_company_email  = association_proxy("deal", "needing_company_email")
     doc_name = db.Column(db.String(40), nullable=False) # eventueel de exacte datum en tijd als default waarde 
@@ -86,13 +87,12 @@ class Review(db.Model):
     deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="SET NULL"), nullable=True)
     reviewer_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="SET NULL"), nullable=False)
     reviewee_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
-    # db.relationship moet nog
-    # company id schrijver en bedrijf in kwestie, weer zoals bij deal (2 foreignkeys uit 1 relationship)
-    rating = db.Column(db.Integer, CheckConstraint('rating BETWEEN 0 AND 10'), nullable=False) #'' rond rating BETWEEN ... is nodig omdat de CheckConstraint constructor een SQL expressie verwacht, die expressie wordt dan omgezet naar python door SQLalchemy waardoor AND wel functionaliteit heeft odanks het feit dat het tussen aanhalingstekens staat 
+    rating = db.Column(db.Integer, nullable=False) 
     comment = db.Column(db.Text()) # mag NULL hebben volgens mij
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-
+    reviewer = db.relationship("Company", foreign_keys([reviewer_id]), back_populates = "reviews_written")
+    reviewee = db.relationship("Company", foreign_keys([reviewee_id]), back_populates = "reviews_received")
+    deal_a = db.relationship("Deal", back_populates="reviews")
 
 # to do:
     # index werking implementeren waar nodig
-    # relationships bij review
