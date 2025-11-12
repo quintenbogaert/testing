@@ -1,0 +1,93 @@
+from datetime import datetime
+from sqlalchemy import CheckConstraint, UniqueConstraint, Index,
+from sqlalchemy.sql import func
+from flask_sqlalchemy import SQLAlchemy
+
+db = SQLAlchemy()
+
+
+class Company(db.Model):
+    __tablename__ = "companies"
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    industry = db.Column(db.String(80), nullable=False)
+    join_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    services = db.relationship("Service", back_populates="company", cascade="all, delete-orphan")
+    # kolom contactgegevens
+
+    def __repr__(self):
+        return f'<Company {self.username}>'
+
+# => maakt tabel met naam Company in database,
+# kolom1: id => bestaat uit een getal en wordt gebruikt als identificatie 
+# kolom2: username => string met max lengte = 80, moet uniek zijn => geen dubbele usernames, en nullable = False => mag niet leeg zijn voor een user
+# elke instantie van Company => 1 rij 
+
+class Service(db.Model):
+    __tablename__ = "services"
+    id = db.Column(db.Integer, primary_key=True)
+    company_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False) # als bedrijf weg dan moet services erdoor ook weg
+    company = db.relationship("Company", back_populates="services")
+    offer_or_need = db.Column(db.Boolean, nullable=False, default=True)
+    title = db.Column(db.String(120), nullable=False)
+    description = db.Column(db.Text()) #db.Text() gebruiken ipv bv db.String(1000) als beschrijvingen echt lang kunnen zijn 
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) #nodig? mss handig voor filteren op hoe recent een aanvraag of aanbod gemaakt is 
+    last_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow) # lijkt mij logisch vervolg als we created_at gebruiken 
+    deals_offered = db.relationship("Deal", back_populates="service_offered", foreign_keys="Deal.service_offered_id")
+    deals_needed = db.relationship("Deal", back_populates="service_needed", foreign_keys="Deal.service_needed_id")
+
+    def __repr__(self):
+        kind = "offer" if self.offer_or_need else "need"
+        return f"<Service {self.id} {kind} {self.title} ({self.company.username})>"
+
+
+class Deal(db.Model): #alleen lopende deals, 
+    __tablename__ = "deals"
+    id = db.Column(db.Integer, primary_key=True)
+    service_offered_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False) # service kan niet verwijderd worden als de service in een deal zit
+    service_needed_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False)
+    service_offered = db.relationship("Service", back_populates="deals_offered", foreign_keys=[service_offered_id]) # geen cascade want veranderingen in deals of services mag de ander niet beinvloeden 
+    service_needed = db.relationship("Service", back_populates="deals_needed", foreign_keys=[service_needed_id])
+    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    end_date = db.Column(db.DateTime) # er moet niet per se een einddatum zijn (later: mss werken met perpetuals)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # nuttig?
+    # status, created_at moet er nog bij
+    # voorwaarden voor service offered en service needed via routes afhandelen? 
+
+    def __repr__(self):
+        return f"<Deal {self.id} offered={self.service_offered_id} needed={self.service_needed_id}>"
+    
+    __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
+
+
+
+
+#probleem met upgraden van contract en review, migration file al gemaakt 
+class Contract(db.Model):
+    __tablename__ = "contract"
+    id = db.Column(db.Integer, primary_key=True)
+    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id'), nullable=False)
+    doc_name = db.Column(db.String(40), nullable=False) # eventueel de exacte datum en tijd als default waarde 
+    doc_path = db.Column(db.String(520), nullable=False) # 520 => sommige tijdelijke (beveiligde) bestanden kunnen een pad of URL hebben dat tegen de 500 tekens in lengte kan zijn, een string gebruiken om het pad op te slaan is belangrijk voor schaalbaarheid
+                                                        # het programma automatisch het juiste pad laten toekennen lijkt mij vrij belangrijk, hoe?
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    # kolom involved parties (uit company halen)
+    # kolom concretisering van verplichtingen en arrangementen
+    # kolom contactgegevens (uit company halen)
+
+class Review(db.Model): 
+    __tablename__ = "reviews"
+    id = db.Column(db.Integer, primary_key=True)
+    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id'))
+    # db.relationship moet nog
+    # company id schrijver en bedrijf in kwestie, weer zoals bij deal (2 foreignkeys uit 1 relationship)
+    rating = db.Column(db.Integer, CheckConstraint('rating BETWEEN 0 AND 10'), nullable=False) #'' rond rating BETWEEN ... is nodig omdat de CheckConstraint constructor een SQL expressie verwacht, die expressie wordt dan omgezet naar python door SQLalchemy waardoor AND wel functionaliteit heeft odanks het feit dat het tussen aanhalingstekens staat 
+    comment = db.Column(db.Text()) # mag NULL hebben volgens mij
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+# to do :
+    # index werking implementeren waar nodig
+    # relationships bij contract en review  
+    # 
