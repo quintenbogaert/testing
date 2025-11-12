@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, UniqueConstraint, Index,
 from sqlalchemy.sql import func
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.ext.associationproxy import association_proxy
 
 db = SQLAlchemy()
 
@@ -47,9 +48,12 @@ class Deal(db.Model): #alleen lopende deals,
     service_needed_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False)
     service_offered = db.relationship("Service", back_populates="deals_offered", foreign_keys=[service_offered_id]) # geen cascade want veranderingen in deals of services mag de ander niet beinvloeden 
     service_needed = db.relationship("Service", back_populates="deals_needed", foreign_keys=[service_needed_id])
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # nuttig?
+    offering_company = association_proxy("service_offered", "company")
+    needing_company  = association_proxy("service_needed",  "company")
+    offering_company_email = association_proxy("offering_company", "email")
+    needing_company_email  = association_proxy("needing_company", "email")
     contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan")
-    # status, created_at moet er nog bij
+    # status moet er nog bij
     # voorwaarden voor service offered en service needed via routes afhandelen? 
 
     __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
@@ -64,15 +68,18 @@ class Contract(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="CASCADE"), nullable=False)
     deal = db.relationship("Deal", back_populates="contracts")
+    offering_company = association_proxy("deal", "offering_company")
+    needing_company  = association_proxy("deal", "needing_company")
+    offering_company_email = association_proxy("deal", "offering_company_email")
+    needing_company_email  = association_proxy("deal", "needing_company_email")
     doc_name = db.Column(db.String(40), nullable=False) # eventueel de exacte datum en tijd als default waarde 
     doc_path = db.Column(db.String(520), nullable=False) # 520 => sommige tijdelijke (beveiligde) bestanden kunnen een pad of URL hebben dat tegen de 500 tekens in lengte kan zijn, een string gebruiken om het pad op te slaan is belangrijk voor schaalbaarheid
                                                         # het programma automatisch het juiste pad laten toekennen lijkt mij vrij belangrijk, hoe?
     start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     end_date = db.Column(db.DateTime) # er moet niet per se een einddatum zijn (later: mss werken met perpetuals)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    # kolom involved parties (uit company halen)
-    # kolom concretisering van verplichtingen en arrangementen
-    # kolom contactgegevens (uit company halen)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) #nuttig?
+    obligations = db.Column(db.Text(), nullable=False)
+    # kolom email (uit company halen)
 
 class Review(db.Model): 
     __tablename__ = "reviews"
@@ -87,5 +94,5 @@ class Review(db.Model):
 
 # to do :
     # index werking implementeren waar nodig
-    # relationships bij contract en review  
+    # relationships bij review  
     # 
