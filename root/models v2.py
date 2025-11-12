@@ -96,3 +96,5 @@ class Review(db.Model):
 
 # to do:
     # index werking implementeren waar nodig
+    # __repr__ instellen
+    
