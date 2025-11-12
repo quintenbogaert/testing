@@ -48,13 +48,12 @@ class Deal(db.Model): #alleen lopende deals,
     service_needed_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False)
     service_offered = db.relationship("Service", back_populates="deals_offered", foreign_keys=[service_offered_id]) # geen cascade want veranderingen in deals of services mag de ander niet beinvloeden 
     service_needed = db.relationship("Service", back_populates="deals_needed", foreign_keys=[service_needed_id])
-    offering_company = association_proxy("service_offered", "company")
-    needing_company  = association_proxy("service_needed",  "company")
+    offering_company = association_proxy("service_offered", "company") # via deze proxies worden de betrokken partijen en hun emails aan het contract gelinkt
+    needing_company  = association_proxy("service_needed",  "company") # zie tegenhangers bij class Contract
     offering_company_email = association_proxy("offering_company", "email")
     needing_company_email  = association_proxy("needing_company", "email")
     contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan")
     # status moet er nog bij
-    # voorwaarden voor service offered en service needed via routes afhandelen? 
 
     __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
 
@@ -68,9 +67,9 @@ class Contract(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="CASCADE"), nullable=False)
     deal = db.relationship("Deal", back_populates="contracts")
-    offering_company = association_proxy("deal", "offering_company")
-    needing_company  = association_proxy("deal", "needing_company")
-    offering_company_email = association_proxy("deal", "offering_company_email")
+    offering_company = association_proxy("deal", "offering_company") # linken van betrokken bedrijven aan een contract
+    needing_company  = association_proxy("deal", "needing_company") 
+    offering_company_email = association_proxy("deal", "offering_company_email") # linken van hun emails aan het contract
     needing_company_email  = association_proxy("deal", "needing_company_email")
     doc_name = db.Column(db.String(40), nullable=False) # eventueel de exacte datum en tijd als default waarde 
     doc_path = db.Column(db.String(520), nullable=False) # 520 => sommige tijdelijke (beveiligde) bestanden kunnen een pad of URL hebben dat tegen de 500 tekens in lengte kan zijn, een string gebruiken om het pad op te slaan is belangrijk voor schaalbaarheid
