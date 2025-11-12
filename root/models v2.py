@@ -77,13 +77,15 @@ class Contract(db.Model):
     start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     end_date = db.Column(db.DateTime) # er moet niet per se een einddatum zijn (later: mss werken met perpetuals)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) #nuttig?
-    obligations = db.Column(db.Text(), nullable=False)
-    # kolom email (uit company halen)
+    # obligations = db.Column(db.Text(), nullable=False) => nodig? want contract is het document waarvoor we het adres en naam hebben opgeslaan
+
 
 class Review(db.Model): 
     __tablename__ = "reviews"
     id = db.Column(db.Integer, primary_key=True)
-    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id'))
+    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="SET NULL"), nullable=True)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="SET NULL"), nullable=False)
+    reviewee_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete="CASCADE"), nullable=False)
     # db.relationship moet nog
     # company id schrijver en bedrijf in kwestie, weer zoals bij deal (2 foreignkeys uit 1 relationship)
     rating = db.Column(db.Integer, CheckConstraint('rating BETWEEN 0 AND 10'), nullable=False) #'' rond rating BETWEEN ... is nodig omdat de CheckConstraint constructor een SQL expressie verwacht, die expressie wordt dan omgezet naar python door SQLalchemy waardoor AND wel functionaliteit heeft odanks het feit dat het tussen aanhalingstekens staat 
@@ -91,7 +93,6 @@ class Review(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
-# to do :
+# to do:
     # index werking implementeren waar nodig
-    # relationships bij review  
-    # 
+    # relationships bij review
