@@ -13,7 +13,7 @@ class Company(db.Model):
     industry = db.Column(db.String(80), nullable=False)
     join_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     services = db.relationship("Service", back_populates="company", cascade="all, delete-orphan")
-    # kolom contactgegevens
+    email = db.Column(db.String, unique=True, nullable=False)
 
     def __repr__(self):
         return f'<Company {self.username}>'
@@ -32,8 +32,6 @@ class Service(db.Model):
     title = db.Column(db.String(120), nullable=False)
     description = db.Column(db.Text()) #db.Text() gebruiken ipv bv db.String(1000) als beschrijvingen echt lang kunnen zijn 
     active = db.Column(db.Boolean, nullable=False, default=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) #nodig? mss handig voor filteren op hoe recent een aanvraag of aanbod gemaakt is 
-    last_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow) # lijkt mij logisch vervolg als we created_at gebruiken 
     deals_offered = db.relationship("Deal", back_populates="service_offered", foreign_keys="Deal.service_offered_id")
     deals_needed = db.relationship("Deal", back_populates="service_needed", foreign_keys="Deal.service_needed_id")
 
@@ -49,28 +47,28 @@ class Deal(db.Model): #alleen lopende deals,
     service_needed_id = db.Column(db.Integer, db.ForeignKey("services.id", ondelete="RESTRICT"), nullable=False)
     service_offered = db.relationship("Service", back_populates="deals_offered", foreign_keys=[service_offered_id]) # geen cascade want veranderingen in deals of services mag de ander niet beinvloeden 
     service_needed = db.relationship("Service", back_populates="deals_needed", foreign_keys=[service_needed_id])
-    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    end_date = db.Column(db.DateTime) # er moet niet per se een einddatum zijn (later: mss werken met perpetuals)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow) # nuttig?
+    contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan")
     # status, created_at moet er nog bij
     # voorwaarden voor service offered en service needed via routes afhandelen? 
+
+    __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
 
     def __repr__(self):
         return f"<Deal {self.id} offered={self.service_offered_id} needed={self.service_needed_id}>"
     
-    __table_args__ = CheckConstraint("service_offered_id <> service_needed_id", name="distinct_services")
-
-
-
 
 #probleem met upgraden van contract en review, migration file al gemaakt 
 class Contract(db.Model):
-    __tablename__ = "contract"
+    __tablename__ = "contracts"
     id = db.Column(db.Integer, primary_key=True)
-    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id'), nullable=False)
+    deal_id = db.Column(db.Integer, db.ForeignKey('deals.id', ondelete="CASCADE"), nullable=False)
+    deal = db.relationship("Deal", back_populates="contracts")
     doc_name = db.Column(db.String(40), nullable=False) # eventueel de exacte datum en tijd als default waarde 
     doc_path = db.Column(db.String(520), nullable=False) # 520 => sommige tijdelijke (beveiligde) bestanden kunnen een pad of URL hebben dat tegen de 500 tekens in lengte kan zijn, een string gebruiken om het pad op te slaan is belangrijk voor schaalbaarheid
                                                         # het programma automatisch het juiste pad laten toekennen lijkt mij vrij belangrijk, hoe?
+    start_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    end_date = db.Column(db.DateTime) # er moet niet per se een einddatum zijn (later: mss werken met perpetuals)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     # kolom involved parties (uit company halen)
     # kolom concretisering van verplichtingen en arrangementen
