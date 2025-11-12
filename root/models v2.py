@@ -13,7 +13,7 @@ class Company(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     industry = db.Column(db.String(80), nullable=False)
     join_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    services = db.relationship("Service", back_populates="company", cascade="all, delete-orphan")
+    services = db.relationship("Service", back_populates="company", cascade="all, delete-orphan", passive_deletes=True)
     email = db.Column(db.String, unique=True, nullable=False)
 
     def __repr__(self):
@@ -52,7 +52,7 @@ class Deal(db.Model):
     needing_company  = association_proxy("service_needed",  "company") # zie tegenhangers bij class Contract
     offering_company_email = association_proxy("offering_company", "email")
     needing_company_email  = association_proxy("needing_company", "email")
-    contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan")
+    contracts = db.relationship("Contract", back_populates="deal", cascade="all, delete-orphan", passive_deletes=True)
     reviews = db.relationship("Review", back_populates="deal_a")
     # status moet er nog bij
 
@@ -97,4 +97,4 @@ class Review(db.Model):
 # to do:
     # index werking implementeren waar nodig
     # __repr__ instellen
-    
+
